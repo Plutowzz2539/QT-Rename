@@ -1,13 +1,12 @@
-import sys
 import os
 import re
+import sys
 from pathlib import Path
 
-from PyQt6 import QtWidgets
+from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLineEdit, QFileDialog,
                              QTableWidget, QTableWidgetItem, QLabel, QHeaderView)
-from PyQt6.QtGui import QFont, QColor
 
 ChangedColor = QColor(131, 203, 172)
 UnsafeColor = QColor(231, 124, 142)
