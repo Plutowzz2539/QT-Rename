@@ -148,26 +148,27 @@ class BatchRenameApp(QMainWindow):
                 self.preview_table.setItem(row, 1, new_item)
 
     def rename_files(self):
-        """执行重命名操作"""
-        pattern = self.pattern_input.text()
-        replacement = self.replace_input.text()
-
-        try:
-            re.compile(pattern)
-        except re.error:
+        """执行重命名操作，从表格读取新文件名"""
+        if not self.directory or not self.files:
             return
 
-        self.history.append(self.files)
+        # 保存当前文件列表到历史记录
+        self.history.append(self.files.copy())
 
-        for file in self.files:
+        # 从表格读取新文件名
+        for row, file in enumerate(self.files):
+            new_item = self.preview_table.item(row, 1)
+            new_filename = new_item.text().strip()
+            # 名称未改变，跳过
+            if new_filename == file.name:
+                continue
+
             try:
-                new_filename = re.sub(pattern, replacement, file.name)
-                if new_filename != file.name:
-                    os.rename(
-                        file,
-                        self.directory.joinpath(new_filename)
-                    )
-            except (re.error, OSError):
+                new_path = self.directory.joinpath(new_filename)
+                os.rename(file, new_path)
+                print(f"重命名 {file.name} 为 {new_filename}")
+            except OSError as e:
+                print(f"重命名 {file.name} 失败：{e}")
                 continue
 
         # 刷新文件列表
