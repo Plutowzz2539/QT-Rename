@@ -22,7 +22,8 @@ class BatchRenameApp(QMainWindow):
         # 初始化变量
         self.directory: Path = None
         self.files: list[Path] = []
-        self.history: list[list[Path]] = []
+        # [[[file1, new_file2], ...]，[[file1, new_file2], ...]「
+        self.history: list[list[list[Path]]] = []
 
         # 创建主窗口部件和布局
         main_widget = QWidget()
@@ -99,14 +100,15 @@ class BatchRenameApp(QMainWindow):
             return
 
         want_files = self.history.pop()
-        if len(want_files) != len(self.files):
-            return
 
-        for file, old_file in zip(self.files, want_files):
+        for old_file, file in want_files:
+            if old_file == file:
+                continue
             try:
                 os.rename(file, old_file)
+                print(f"{old_file} -> {file}")
             except OSError:
-                continue
+                print(f"无法重命名 {file} -> {old_file}")
 
         self.refresh_files()
 
@@ -152,21 +154,23 @@ class BatchRenameApp(QMainWindow):
         if not self.directory or not self.files:
             return
 
-        # 保存当前文件列表到历史记录
-        self.history.append(self.files.copy())
-
+        updates:list[list[Path]] = []
         # 从表格读取新文件名
         for row, file in enumerate(self.files):
             new_item = self.preview_table.item(row, 1)
             new_filename = new_item.text().strip()
-            # 名称未改变，跳过
-            if new_filename == file.name:
-                continue
+            new_file = self.directory.joinpath(new_filename)
+            updates.append([file, new_file])
 
+        # 保存当前文件列表到历史记录
+        self.history.append(updates)
+
+        for file, new_file in updates:
+            if file == new_file:
+                continue
             try:
-                new_path = self.directory.joinpath(new_filename)
-                os.rename(file, new_path)
-                print(f"重命名 {file.name} 为 {new_filename}")
+                os.rename(file, new_file)
+                print(f"{file.name} -> {new_file.name}")
             except OSError as e:
                 print(f"重命名 {file.name} 失败：{e}")
                 continue
