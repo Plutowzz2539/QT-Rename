@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 
 ChangedColor = QColor(131, 203, 172)
 UnsafeColor = QColor(231, 124, 142)
-UnsafeStr = ['?', '-']
+UnsafeStr = ['?', '|', ]
 
 
 class BatchRenameApp(QMainWindow):
@@ -61,6 +61,7 @@ class BatchRenameApp(QMainWindow):
         pattern_layout = QHBoxLayout()
         self.pattern_input = QLineEdit()
         self.pattern_input.setPlaceholderText("输入正则表达式模式...")
+        self.pattern_input.setText(r'.*?山田.*?[\)\]]* *')
         self.pattern_input.textChanged.connect(self.update_preview)
         self.replace_input = QLineEdit()
         self.replace_input.setPlaceholderText("输入替换字符串...")
@@ -75,6 +76,7 @@ class BatchRenameApp(QMainWindow):
         self.preview_table = QTableWidget()
         self.preview_table.setColumnCount(2)
         self.preview_table.setHorizontalHeaderLabels(["原始文件名", "新文件名"])
+        self.preview_table.itemEntered.connect(self.colorGround)
         self.preview_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.preview_table)
 
@@ -84,6 +86,7 @@ class BatchRenameApp(QMainWindow):
             return
         # 列出文件
         self.files = [f for f in self.directory.glob("*") if f.is_file()]
+        self.files.sort(key=lambda x: x.name)
         self.update_preview()
 
     def select_folder(self):
@@ -128,6 +131,7 @@ class BatchRenameApp(QMainWindow):
             pattern = None
         # \[偽MIDI泥の会 \(石恵)]
         self.preview_table.setRowCount(len(self.files))
+        new_filename_list = []
         for row, file in enumerate(self.files):
             # 原始文件名
             original_item = QTableWidgetItem(file.name)
@@ -136,25 +140,52 @@ class BatchRenameApp(QMainWindow):
             # 新文件名
             try:
                 new_filename = re.sub(pattern, replacement, file.name)
+                counts = new_filename_list.count(new_filename)
+                new_filename_list.append(new_filename)
+
+                if counts > 0:
+                    new_filename = Path(new_filename).with_stem(Path(new_filename).stem + f"_({counts})").name
+
             except TypeError:
                 self.preview_table.setItem(row, 1, QTableWidgetItem("无效的正则表达式"))
             else:
                 new_item = QTableWidgetItem(new_filename)
                 if new_filename != file.name:
-                    color = UnsafeColor if any([i in new_filename for i in UnsafeStr]) else ChangedColor
-                    # 高亮变化的文件名
-                    new_item.setForeground(color)
                     font = QFont()
                     font.setBold(True)
                     new_item.setFont(font)
                 self.preview_table.setItem(row, 1, new_item)
+
+        self.colorGround()
+
+    def colorGround(self):
+        new_filename_list = []
+        for row in range(self.preview_table.rowCount()):
+            file = self.preview_table.item(row, 0)
+            file_name = file.text()
+            new_file = self.preview_table.item(row, 1)
+            if not new_file:
+                continue
+            new_file_name = new_file.text()
+            if file_name == new_file_name:
+                continue
+            color = UnsafeColor if any([i in new_file_name for i in UnsafeStr]) else ChangedColor
+            counts = new_filename_list.count(new_file_name)
+            new_filename_list.append(new_file_name)
+            if counts > 0:
+                # 重新设置上一个重复的文件
+                idx = new_filename_list.index(new_file_name)
+                self.preview_table.item(idx, 1).setForeground(UnsafeColor)
+                # 将这次的文件标为红色，并且名字
+                color = UnsafeColor
+            new_file.setForeground(color)
 
     def rename_files(self):
         """执行重命名操作，从表格读取新文件名"""
         if not self.directory or not self.files:
             return
 
-        updates:list[list[Path]] = []
+        updates: list[list[Path]] = []
         # 从表格读取新文件名
         for row, file in enumerate(self.files):
             new_item = self.preview_table.item(row, 1)
